@@ -14,16 +14,399 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          consultation_notes: string | null
+          created_at: string
+          duration_mins: number
+          id: string
+          meet_link: string | null
+          patient_id: string
+          professional_id: string
+          scheduled_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          consultation_notes?: string | null
+          created_at?: string
+          duration_mins?: number
+          id?: string
+          meet_link?: string | null
+          patient_id: string
+          professional_id: string
+          scheduled_at: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          consultation_notes?: string | null
+          created_at?: string
+          duration_mins?: number
+          id?: string
+          meet_link?: string | null
+          patient_id?: string
+          professional_id?: string
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      availability_slots: {
+        Row: {
+          buffer_mins: number
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_blocked: boolean
+          professional_id: string
+          slot_duration_mins: number
+          start_time: string
+        }
+        Insert: {
+          buffer_mins?: number
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_blocked?: boolean
+          professional_id: string
+          slot_duration_mins?: number
+          start_time: string
+        }
+        Update: {
+          buffer_mins?: number
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_blocked?: boolean
+          professional_id?: string
+          slot_duration_mins?: number
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_slots_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          appointment_id: string
+          content: string
+          created_at: string
+          id: string
+          sender_id: string
+        }
+        Insert: {
+          appointment_id: string
+          content: string
+          created_at?: string
+          id?: string
+          sender_id: string
+        }
+        Update: {
+          appointment_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_requests: {
+        Row: {
+          amount: number
+          id: string
+          paid_at: string | null
+          processed_by: string | null
+          professional_id: string
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          id?: string
+          paid_at?: string | null
+          processed_by?: string | null
+          professional_id: string
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          id?: string
+          paid_at?: string | null
+          processed_by?: string | null
+          professional_id?: string
+          requested_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          bio: string | null
+          consultation_fee: number | null
+          created_at: string
+          full_name: string
+          id: string
+          is_profile_complete: boolean
+          is_verified: boolean
+          license_expiry: string | null
+          license_number: string | null
+          phone: string | null
+          specialty: string | null
+          updated_at: string
+          user_id: string
+          years_of_experience: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          bio?: string | null
+          consultation_fee?: number | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_profile_complete?: boolean
+          is_verified?: boolean
+          license_expiry?: string | null
+          license_number?: string | null
+          phone?: string | null
+          specialty?: string | null
+          updated_at?: string
+          user_id: string
+          years_of_experience?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          bio?: string | null
+          consultation_fee?: number | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_profile_complete?: boolean
+          is_verified?: boolean
+          license_expiry?: string | null
+          license_number?: string | null
+          phone?: string | null
+          specialty?: string | null
+          updated_at?: string
+          user_id?: string
+          years_of_experience?: number | null
+        }
+        Relationships: []
+      }
+      time_off_blocks: {
+        Row: {
+          blocked_date: string
+          created_at: string
+          end_time: string | null
+          id: string
+          professional_id: string
+          reason: string | null
+          start_time: string | null
+        }
+        Insert: {
+          blocked_date: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          professional_id: string
+          reason?: string | null
+          start_time?: string | null
+        }
+        Update: {
+          blocked_date?: string
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          professional_id?: string
+          reason?: string | null
+          start_time?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_off_blocks_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          appointment_id: string | null
+          created_at: string
+          id: string
+          net_amount: number
+          patient_id: string
+          paystack_reference: string | null
+          platform_fee: number
+          professional_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          appointment_id?: string | null
+          created_at?: string
+          id?: string
+          net_amount?: number
+          patient_id: string
+          paystack_reference?: string | null
+          platform_fee?: number
+          professional_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          appointment_id?: string | null
+          created_at?: string
+          id?: string
+          net_amount?: number
+          patient_id?: string
+          paystack_reference?: string | null
+          platform_fee?: number
+          professional_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      verification_requests: {
+        Row: {
+          created_at: string
+          id: string
+          professional_id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          professional_id: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          professional_id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_requests_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          balance: number
+          id: string
+          professional_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          id?: string
+          professional_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          id?: string
+          professional_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_appointment_confirmed: {
+        Args: { _appointment_id: string }
+        Returns: boolean
+      }
+      is_appointment_participant: {
+        Args: { _appointment_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "patient" | "professional" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +533,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["patient", "professional", "admin"],
+    },
   },
 } as const
