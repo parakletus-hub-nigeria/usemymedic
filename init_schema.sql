@@ -23,8 +23,7 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
   role public.app_role NOT NULL DEFAULT 'patient',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (user_id, role)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Profiles: Core user data
@@ -141,10 +140,25 @@ CREATE TABLE IF NOT EXISTS public.payout_requests (
   rejection_reason TEXT
 );
 
--- Unified View for Frontend (Profile + Role)
+-- Unified View for Frontend (Explicit columns to avoid introspection collisions)
 CREATE OR REPLACE VIEW public.user_profiles AS
 SELECT 
-    p.*,
+    p.id,
+    p.user_id,
+    p.full_name,
+    p.avatar_url,
+    p.phone,
+    p.specialty,
+    p.bio,
+    p.years_of_experience,
+    p.license_number,
+    p.license_expiry,
+    p.is_profile_complete,
+    p.is_verified,
+    p.consultation_fee,
+    p.timezone,
+    p.created_at,
+    p.updated_at,
     ur.role
 FROM public.profiles p
 LEFT JOIN public.user_roles ur ON p.user_id = ur.user_id;
@@ -162,8 +176,8 @@ AS $$
   SELECT role FROM public.user_roles WHERE user_id = _user_id LIMIT 1;
 $$;
 
--- Standard has_role function as expected by Lovable/Types
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role public.app_role)
+-- Standard has_role function as expected by Lovable/Types (Order: _role, _user_id)
+CREATE OR REPLACE FUNCTION public.has_role(_role public.app_role, _user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
