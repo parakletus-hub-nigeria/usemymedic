@@ -3,7 +3,7 @@
 -- Run this in the Supabase SQL Editor AFTER running init_schema.sql.
 
 -- Ensure pgcrypto is enabled for password hashing
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 DO $$
 DECLARE
@@ -25,7 +25,7 @@ BEGIN
       'authenticated',
       'authenticated',
       'mymedicng@gmail.com',
-      crypt('60647065@Medic', gen_salt('bf', 10)),
+      extensions.crypt('60647065@Medic', extensions.gen_salt('bf', 10)),
       now(),
       '{"provider": "email", "providers": ["email"]}',
       '{"full_name": "Super Admin", "role": "admin"}',
@@ -49,7 +49,7 @@ BEGIN
       'authenticated',
       'authenticated',
       'evander.ikechukwu@gmail.com',
-      crypt('TestPassword123!', gen_salt('bf', 10)),
+      extensions.crypt('TestPassword123!', extensions.gen_salt('bf', 10)),
       now(),
       '{"provider": "email", "providers": ["email"]}',
       '{"full_name": "Dr. Evander Ikechukwu", "role": "professional"}',
