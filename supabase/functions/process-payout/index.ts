@@ -28,13 +28,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    // Check admin role
     const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
     }
 
-    const { payout_id } = await req.json();
+    const { payout_id, action, rejection_reason } = await req.json();
     if (!payout_id) {
       return new Response(JSON.stringify({ error: "payout_id required" }), { status: 400, headers: corsHeaders });
     }
@@ -51,7 +50,26 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Payout not found or already processed" }), { status: 404, headers: corsHeaders });
     }
 
-    // Mark paid
+    if (action === "reject") {
+      // Reject: update status and refund wallet
+      await supabase.from("payout_requests").update({
+        status: "rejected",
+        rejection_reason: rejection_reason || "No reason provided",
+        processed_by: user.id,
+      }).eq("id", payout_id);
+
+      // Refund wallet balance
+      const { data: wallet } = await supabase.from("wallets").select("*").eq("professional_id", payout.professional_id).single();
+      if (wallet) {
+        await supabase.from("wallets").update({
+          balance: Number(wallet.balance) + Number(payout.amount),
+        }).eq("id", wallet.id);
+      }
+
+      return new Response(JSON.stringify({ success: true, action: "rejected" }), { status: 200, headers: corsHeaders });
+    }
+
+    // Default: mark paid
     await supabase.from("payout_requests").update({
       status: "paid",
       paid_at: new Date().toISOString(),
@@ -66,7 +84,7 @@ Deno.serve(async (req) => {
       }).eq("id", wallet.id);
     }
 
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
+    return new Response(JSON.stringify({ success: true, action: "paid" }), { status: 200, headers: corsHeaders });
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }

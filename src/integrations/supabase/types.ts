@@ -16,36 +16,42 @@ export type Database = {
     Tables: {
       appointments: {
         Row: {
+          completed_at: string | null
           consultation_notes: string | null
           created_at: string
           duration_mins: number
           id: string
           meet_link: string | null
           patient_id: string
+          payment_expires_at: string | null
           professional_id: string
           scheduled_at: string
           status: string
           updated_at: string
         }
         Insert: {
+          completed_at?: string | null
           consultation_notes?: string | null
           created_at?: string
           duration_mins?: number
           id?: string
           meet_link?: string | null
           patient_id: string
+          payment_expires_at?: string | null
           professional_id: string
           scheduled_at: string
           status?: string
           updated_at?: string
         }
         Update: {
+          completed_at?: string | null
           consultation_notes?: string | null
           created_at?: string
           duration_mins?: number
           id?: string
           meet_link?: string | null
           patient_id?: string
+          payment_expires_at?: string | null
           professional_id?: string
           scheduled_at?: string
           status?: string
@@ -136,6 +142,7 @@ export type Database = {
           paid_at: string | null
           processed_by: string | null
           professional_id: string
+          rejection_reason: string | null
           requested_at: string
           status: string
         }
@@ -145,6 +152,7 @@ export type Database = {
           paid_at?: string | null
           processed_by?: string | null
           professional_id: string
+          rejection_reason?: string | null
           requested_at?: string
           status?: string
         }
@@ -154,6 +162,7 @@ export type Database = {
           paid_at?: string | null
           processed_by?: string | null
           professional_id?: string
+          rejection_reason?: string | null
           requested_at?: string
           status?: string
         }
@@ -175,6 +184,7 @@ export type Database = {
           license_number: string | null
           phone: string | null
           specialty: string | null
+          timezone: string
           updated_at: string
           user_id: string
           years_of_experience: number | null
@@ -194,6 +204,7 @@ export type Database = {
           license_number?: string | null
           phone?: string | null
           specialty?: string | null
+          timezone?: string
           updated_at?: string
           user_id: string
           years_of_experience?: number | null
@@ -213,6 +224,7 @@ export type Database = {
           license_number?: string | null
           phone?: string | null
           specialty?: string | null
+          timezone?: string
           updated_at?: string
           user_id?: string
           years_of_experience?: number | null
@@ -402,6 +414,10 @@ export type Database = {
       }
       is_appointment_participant: {
         Args: { _appointment_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_chat_accessible: {
+        Args: { _appointment_id: string }
         Returns: boolean
       }
     }

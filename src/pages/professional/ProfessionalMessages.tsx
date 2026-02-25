@@ -3,11 +3,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import SecureChat from "@/components/chat/SecureChat";
 import { MessageSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, isAfter, addHours } from "date-fns";
 
 const ProfessionalMessages = () => {
   const { user } = useAuth();
@@ -20,9 +21,9 @@ const ProfessionalMessages = () => {
     const fetchThreads = async () => {
       const { data } = await supabase
         .from("appointments")
-        .select("id, scheduled_at, patient_id, status")
+        .select("id, scheduled_at, patient_id, status, completed_at")
         .eq("professional_id", user.id)
-        .eq("status", "confirmed")
+        .in("status", ["confirmed", "completed"])
         .order("scheduled_at", { ascending: false });
 
       const patientIds = [...new Set((data ?? []).map(a => a.patient_id))];
@@ -32,11 +33,28 @@ const ProfessionalMessages = () => {
         profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p.full_name]));
       }
 
-      setThreads((data ?? []).map(a => ({ ...a, patient_name: profileMap[a.patient_id] || "Patient" })));
+      const now = new Date();
+      const filtered = (data ?? []).filter(a => {
+        if (a.status === "confirmed") return true;
+        if (a.status === "completed" && a.completed_at) {
+          return isAfter(addHours(new Date(a.completed_at), 24), now);
+        }
+        return false;
+      });
+
+      setThreads(filtered.map(a => ({ ...a, patient_name: profileMap[a.patient_id] || "Patient" })));
       setLoading(false);
     };
     fetchThreads();
   }, [user]);
+
+  const isReadOnly = (thread: any) => {
+    if (thread.status === "completed") {
+      if (!thread.completed_at) return true;
+      return !isAfter(addHours(new Date(thread.completed_at), 24), new Date());
+    }
+    return false;
+  };
 
   if (selectedThread) {
     return (
@@ -45,9 +63,12 @@ const ProfessionalMessages = () => {
           <Button variant="ghost" size="sm" onClick={() => setSelectedThread(null)}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back to threads
           </Button>
-          <h2 className="text-lg font-semibold text-foreground">Chat with {selectedThread.patient_name}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-foreground">Chat with {selectedThread.patient_name}</h2>
+            {selectedThread.status === "completed" && <Badge variant="secondary">Completed</Badge>}
+          </div>
           <Card>
-            <SecureChat appointmentId={selectedThread.id} otherName={selectedThread.patient_name} />
+            <SecureChat appointmentId={selectedThread.id} otherName={selectedThread.patient_name} readOnly={isReadOnly(selectedThread)} />
           </Card>
         </div>
       </DashboardLayout>
@@ -83,7 +104,10 @@ const ProfessionalMessages = () => {
                     <p className="font-medium text-foreground">{t.patient_name}</p>
                     <p className="text-xs text-muted-foreground">{format(new Date(t.scheduled_at), "PPP 'at' p")}</p>
                   </div>
-                  <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex items-center gap-2">
+                    {t.status === "completed" && <Badge variant="secondary" className="text-xs">Completed</Badge>}
+                    <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                  </div>
                 </CardContent>
               </Card>
             ))}

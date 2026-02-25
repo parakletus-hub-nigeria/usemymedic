@@ -4,17 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Send, Video } from "lucide-react";
+import { Send, Video, Lock } from "lucide-react";
 import { format } from "date-fns";
 
 interface SecureChatProps {
   appointmentId: string;
   otherName: string;
+  readOnly?: boolean;
 }
 
 const MEET_LINK_REGEX = /https?:\/\/(meet\.google\.com|zoom\.us|teams\.microsoft\.com)\S*/gi;
 
-const SecureChat = ({ appointmentId, otherName }: SecureChatProps) => {
+const SecureChat = ({ appointmentId, otherName, readOnly = false }: SecureChatProps) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -54,7 +55,7 @@ const SecureChat = ({ appointmentId, otherName }: SecureChatProps) => {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || !user) return;
+    if (!input.trim() || !user || readOnly) return;
     setSending(true);
     const { error } = await supabase.from("messages").insert({
       appointment_id: appointmentId,
@@ -91,6 +92,12 @@ const SecureChat = ({ appointmentId, otherName }: SecureChatProps) => {
 
   return (
     <div className="flex flex-col h-[500px]">
+      {readOnly && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground text-sm border-b">
+          <Lock className="h-4 w-4" />
+          This chat is read-only. The 24-hour post-consultation window has closed.
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <p className="text-center text-muted-foreground text-sm py-8">No messages yet. Start the conversation!</p>
@@ -109,18 +116,20 @@ const SecureChat = ({ appointmentId, otherName }: SecureChatProps) => {
         })}
         <div ref={bottomRef} />
       </div>
-      <div className="border-t p-3 flex gap-2">
-        <Input
-          placeholder="Type a message..."
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
-          disabled={sending}
-        />
-        <Button size="icon" onClick={sendMessage} disabled={sending || !input.trim()} className="bg-accent text-accent-foreground hover:bg-accent/90">
-          <Send className="h-4 w-4" />
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="border-t p-3 flex gap-2">
+          <Input
+            placeholder="Type a message..."
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
+            disabled={sending}
+          />
+          <Button size="icon" onClick={sendMessage} disabled={sending || !input.trim()} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

@@ -21,8 +21,9 @@ const ProfessionalWallet = () => {
     supabase.from("payout_requests").select("*").eq("professional_id", user.id).order("requested_at", { ascending: false }).then(({ data }) => setPayouts(data ?? []));
   }, [user]);
 
-  const lastPayout = payouts[0];
-  const cooldownEnd = lastPayout ? addDays(new Date(lastPayout.requested_at), 7) : null;
+  // Fix 2: Only apply cooldown on PAID payouts
+  const lastPaidPayout = payouts.find(p => p.status === "paid");
+  const cooldownEnd = lastPaidPayout ? addDays(new Date(lastPaidPayout.requested_at), 7) : null;
   const isCooldown = cooldownEnd && isAfter(cooldownEnd, new Date());
 
   const requestPayout = async () => {
@@ -37,9 +38,16 @@ const ProfessionalWallet = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Payout requested!" });
-      // Refresh
       const { data } = await supabase.from("payout_requests").select("*").eq("professional_id", user.id).order("requested_at", { ascending: false });
       setPayouts(data ?? []);
+    }
+  };
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "paid": return "bg-green-100 text-green-700";
+      case "rejected": return "bg-red-100 text-red-700";
+      default: return "bg-yellow-100 text-yellow-700";
     }
   };
 
@@ -93,14 +101,19 @@ const ProfessionalWallet = () => {
             ) : (
               <div className="space-y-2">
                 {payouts.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="font-medium">₦{Number(p.amount).toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(p.requested_at), "PPP")}</p>
+                  <div key={p.id} className="rounded-lg border p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">₦{Number(p.amount).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(p.requested_at), "PPP")}</p>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-1 rounded ${statusColor(p.status)}`}>
+                        {p.status}
+                      </span>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-1 rounded ${p.status === "paid" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                      {p.status}
-                    </span>
+                    {p.status === "rejected" && p.rejection_reason && (
+                      <p className="text-xs text-red-600">Reason: {p.rejection_reason}</p>
+                    )}
                   </div>
                 ))}
               </div>
