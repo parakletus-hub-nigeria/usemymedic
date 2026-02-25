@@ -1,156 +1,170 @@
 
 
-# MyMedic MVP — Updated Implementation Plan (Per User Flows Document)
+# MyMedic — Remaining Implementation Gap Analysis & Plan
 
-## Overview
-A HIPAA-conscious healthcare platform connecting Patients with Verified Healthcare Professionals. Three distinct roles: Patient, Professional, Super Admin — each with isolated dashboards and strict role-based access.
+## Current State Assessment
 
----
+After thorough review of all pages, database schema, edge functions, and routing, here is what has been completed and what remains:
 
-## 🎨 Design System
-- **Primary:** Dark Teal `#174353` → `#1D556A` (headers, nav, sidebar)
-- **Accent:** Neon Cyan `#45C4E5` (CTAs, badges, active states)
-- **Backgrounds:** White `#FFFFFF` cards, Off-white `#F8FAFC` page bg
-- **Typography:** Inter font family
-- **Logo:** MyMedic cross+heart logo in navigation
-- Mobile-first responsive design
+### Completed (Items 1-3 + scaffolding of 4-6)
+- Design system with brand tokens, Inter font, layout components
+- Auth flow: Register (with role selector), Login, Forgot Password, Reset Password, role-based ProtectedRoute
+- Database schema: All 10 tables with RLS policies and helper functions (`has_role`, `is_appointment_participant`, `is_appointment_confirmed`)
+- Scaffold pages for all three dashboards with basic data fetching
 
----
+### Critical Gaps Found
 
-## 🗄️ Supabase Database Schema
+**1. Database Triggers Not Attached**
+The functions `handle_new_user`, `handle_new_user_role`, `handle_professional_wallet`, and `update_updated_at_column` exist but the database reports **zero triggers**. Registration will fail silently — no profile, no role, no wallet gets created.
 
-### Core Tables (with strict RLS)
-1. **profiles** — `id (FK auth.users)`, `full_name`, `phone`, `avatar_url`, `specialty`, `bio`, `years_of_experience`, `license_number`, `license_expiry`, `bank_name`, `bank_account_number`, `is_profile_complete`, `is_verified`, `created_at`
-2. **user_roles** — `id`, `user_id`, `role (patient | professional | admin)` + `has_role()` security definer function
-3. **verification_requests** — `id`, `professional_id`, `status (pending | approved | rejected)`, `reviewed_by`, `reviewed_at`, `rejection_reason`
-4. **availability_slots** — `id`, `professional_id`, `day_of_week`, `start_time`, `end_time`, `slot_duration_mins`, `buffer_mins`, `is_blocked`
-5. **time_off_blocks** — `id`, `professional_id`, `blocked_date`, `start_time`, `end_time`, `reason`
-6. **appointments** — `id`, `patient_id`, `professional_id`, `scheduled_at`, `duration_mins`, `status (pending | confirmed | declined | completed | cancelled)`, `consultation_notes`, `meet_link`, `created_at`
-7. **messages** — `id`, `appointment_id`, `sender_id`, `content`, `created_at` (only accessible for confirmed appointments)
-8. **transactions** — `id`, `appointment_id`, `patient_id`, `professional_id`, `amount`, `platform_fee`, `net_amount`, `paystack_reference`, `status (pending | success | failed)`, `created_at`
-9. **wallets** — `id`, `professional_id`, `balance`, `updated_at`
-10. **payout_requests** — `id`, `professional_id`, `amount`, `status (pending | paid)`, `requested_at`, `paid_at`, `processed_by`
+**2. Professional Profile Detail Page + Booking Flow (Missing entirely)**
+- No `/patient/professional/:id` route or page exists
+- Patients cannot view a professional's full profile, see available time slots, or request an appointment
+- The "View Profile" button on DiscoverProfessionals links to a non-existent route
 
-### Key RLS Policies
-- Patients: read/write own profile, own appointments, own messages for confirmed appointments
-- Professionals: read/write own profile, own availability, appointments assigned to them, messages for their appointments
-- Admins: read all profiles/appointments, manage verification_requests, process payouts
-- `has_role()` security definer function gates all access
+**3. Real-Time Secure Messaging (Placeholder only)**
+- Both `PatientMessages.tsx` and `ProfessionalMessages.tsx` are empty placeholder screens
+- No message sending/receiving, no appointment-scoped chat threads, no Realtime subscription
+- Messages table exists but Realtime publication is not enabled
 
----
+**4. Paystack Integration (Not started)**
+- No `paystack-webhook` edge function
+- No checkout UI or payment trigger after professional confirms an appointment
+- No `process-payout` edge function for admin-triggered payouts
 
-## 🔐 Authentication Flow
-- **Registration:** Email/Password with role selection (Patient or Professional)
-- **Email Verification:** OTP/verification link → activates account
-- **Patient Badge:** "Verified Patient" badge automatically granted upon email verification
-- **2FA Login:** Email/Password → OTP prompt → JWT token → role-based dashboard redirect
-- **Password Reset:** Forgot password → email link → `/reset-password` page
+**5. Google Calendar .ics Generation (Not started)**
+- No .ics file generation for confirmed appointments
+
+**6. Missing UI polish items**
+- Patient appointments list doesn't show professional name (only raw data)
+- Admin finance/payouts show truncated UUIDs instead of professional names
+- No consultation notes UI on appointment detail
+- No meet link sharing in chat
 
 ---
 
-## 📱 Pages & User Flows
+## Implementation Plan
 
-### Shared Pages
-- **Landing Page** — Hero with "Book a Doctor" CTA, trust signals, how-it-works section
-- **Auth Pages** — Login, Register (with role selector), OTP verification, Password Reset
-- **404 Page** — Branded not-found
+### Phase A: Fix Database Triggers (Critical — auth is broken without this)
+Create a migration to attach all four triggers:
+- `on_auth_user_created` → calls `handle_new_user()` (creates profile)
+- `on_auth_user_created_role` → calls `handle_new_user_role()` (assigns role)
+- `on_user_role_created` → calls `handle_professional_wallet()` (creates wallet for professionals)
+- `on_updated_at` → calls `update_updated_at_column()` on profiles, wallets, appointments
 
----
+### Phase B: Professional Profile + Booking Flow
+**New file:** `src/pages/patient/ProfessionalProfile.tsx`
+- Fetches professional profile by ID
+- Displays bio, specialty, years of experience, consultation fee, verified badge
+- Shows available time slots from `availability_slots` table, rendered as a calendar/date picker
+- Excludes slots that overlap with existing appointments or time-off blocks
+- "Request Appointment" button creates an appointment with status `pending`
 
-### 1. 🩺 Patient Flow (`/patient/*`)
+**New route:** `/patient/professional/:id` added to `App.tsx`
 
-#### Phase 1: Onboarding
-- **Registration** → email/password + role = "patient" → email OTP verification → "Verified Patient" badge
+### Phase C: Real-Time Secure Messaging
+**New component:** `src/components/chat/SecureChat.tsx`
+- Takes an `appointmentId` prop
+- Fetches messages for the appointment, subscribes to Realtime inserts
+- Input field to send messages (only if appointment is confirmed)
+- Displays sender name, timestamp, message content
+- Professional can paste a Google Meet link which renders as a clickable card
 
-#### Phase 2: Discovery & Booking
-- **Dashboard Home** — Upcoming appointments, quick-book CTA, past consultations
-- **Settings** — Optional Google Calendar connection for syncing appointments
-- **Discover Professionals** — Search/filter by specialty, only verified professionals shown, profile cards with badge
-- **Professional Profile** — Bio, specialty, years of experience, available time slots calendar
-- **Request Appointment** — Select available slot → creates appointment with PENDING status
+**Enable Realtime:** Migration to add `messages` table to `supabase_realtime` publication
 
-#### Phase 3: Payment & Confirmation
-- **Payment Prompt** — Triggered after professional confirms (or immediately per business logic)
-- **Paystack Checkout** — Redirect to secure checkout paying into unified MyMedic central account
-- **Confirmation** — Webhook marks transaction SUCCESS → appointment CONFIRMED → wallet credited (minus platform fee) → both parties notified → optional Google Calendar .ics sync
+**Update:** Both `PatientMessages.tsx` and `ProfessionalMessages.tsx` to:
+- List confirmed appointments as chat threads
+- Open `SecureChat` component for selected appointment
 
-#### Phase 4: Consultation
-- **Secure Chat** — Unlocked only for CONFIRMED appointments, professional shares Google Meet link here
-- **Post-Consultation** — Patient can view consultation notes added by the professional
+### Phase D: Paystack Integration
+**New edge function:** `supabase/functions/paystack-webhook/index.ts`
+- Validates Paystack webhook signature
+- On `charge.success`: updates transaction status to `success`, credits professional wallet (amount minus platform fee), updates appointment to `confirmed`
+- Requires `PAYSTACK_SECRET_KEY` secret
 
----
+**New edge function:** `supabase/functions/process-payout/index.ts`
+- Admin-triggered: validates admin role, marks payout as `paid`, deducts wallet balance
 
-### 2. 👨‍⚕️ Professional Flow (`/professional/*`)
+**Payment UI:** Add a Paystack inline checkout component triggered when a patient needs to pay for a confirmed appointment
 
-#### Phase 1: Onboarding & Verification
-- **Registration** → email/password + role = "professional"
-- **Profile & Credential Wizard** — Step 1: Personal Info (Name, Specialty, Bio) → Step 2: License Details (License Number, Expiry) → Step 3: Bank Account Info → Submit for review
-- **Pending State** — Dashboard shows "Pending Verification" banner, cannot appear in search or accept bookings
+### Phase E: Google Calendar .ics Generation
+**New utility:** `src/lib/ics.ts`
+- Function to generate `.ics` file content from appointment data
+- Download button on confirmed appointments in both patient and professional views
 
-#### Phase 2: Post-Approval Setup
-- **Login with Badge** — After admin approval, profile displays "Verified Professional" badge
-- **Google Calendar Integration** — Connect calendar for appointment sync & auto Meet link generation
-- **Schedule Manager** — Set recurring working hours per day, define slot durations (30min/1hr), add buffer times between appointments, block specific dates/times for holidays/personal time
-
-#### Phase 3: Appointment Management
-- **Notification** — Receives notification of PENDING appointment requests
-- **Consultation Hub** — Tabs: Pending / Confirmed / Declined / Completed
-  - Accept → status = CONFIRMED (triggers patient payment prompt)
-  - Decline → status = DECLINED (frees up calendar slot)
-
-#### Phase 4: Service Delivery
-- **Secure Chat** — Access chat thread for confirmed appointments
-- **Video Link Sharing** — Share auto-generated Google Meet link (or paste Zoom link) in secure chat
-- **Consultation Notes** — Add brief notes to the appointment record after the call
-
-#### Phase 5: Wallet & Payouts
-- **Wallet Dashboard** — View accrued earnings from successful consultations, transaction history
-- **Request Payout** — "Request Payout" button to withdraw balance to saved bank account
-- **7-Day Cooldown** — Button disabled with countdown timer after each payout request
+### Phase F: UI Polish & Data Enrichment
+- Join professional names into patient appointment cards
+- Join professional names into admin finance/payout views
+- Add consultation notes textarea on professional appointment detail
+- Add meet link field on professional confirmed appointment cards
+- Mobile responsiveness pass on all dashboard pages
+- Loading skeletons instead of plain text loading states
+- Error boundary handling
 
 ---
 
-### 3. 🛡️ Super Admin Flow (`/admin/*`)
+## Technical Details
 
-#### Phase 1: Professional Verification
-- **Login** — Strict credentials + 2FA
-- **Verification Queue** — Table of professionals with `is_verified = false`
-  - View submitted license details
-  - **Approve** → sets `is_verified = true`, activates public profile, grants "Verified Professional" badge
-  - **Reject** → deactivates account with rejection reason
+### Migration SQL for Triggers (Phase A)
+```text
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
-#### Phase 2: Platform Management
-- **User Moderation** — Search any user (Patient or Professional), activate/suspend/deactivate accounts for policy violations
+CREATE TRIGGER on_auth_user_created_role  
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_role();
 
-#### Phase 3: Financial Oversight
-- **Finance Dashboard** — Central platform balance, individual professional wallet balances, transaction overview
-- **Payout Queue** — Table of "Pending Withdrawal Requests" from professionals
-  - **Mark as Paid** → deducts from professional's wallet balance, notifies professional
-  - Supports manual bank transfer or Paystack Transfers
+CREATE TRIGGER on_user_role_created
+  AFTER INSERT ON public.user_roles
+  FOR EACH ROW EXECUTE FUNCTION public.handle_professional_wallet();
 
----
+-- updated_at triggers on relevant tables
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
-## ⚡ Supabase Edge Functions
-1. **paystack-webhook** — Receives payment confirmation, updates transaction to SUCCESS, credits professional wallet (amount minus platform fee), updates appointment to CONFIRMED
-2. **process-payout** — Admin-triggered: marks payout as PAID, deducts wallet balance, sends notification
+CREATE TRIGGER update_wallets_updated_at
+  BEFORE UPDATE ON public.wallets
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
----
+CREATE TRIGGER update_appointments_updated_at
+  BEFORE UPDATE ON public.appointments
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+```
 
-## 🔗 Integrations
-- **Paystack** — Secure checkout for appointment payments into central MyMedic account
-- **Google Calendar** — Downloadable `.ics` files for confirmed appointments (MVP: no OAuth, just file generation)
-- **Real-time Messaging** — Supabase Realtime subscriptions on `messages` table for live chat
+### Realtime Migration (Phase C)
+```text
+ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+```
 
----
+### New Files Created
+```text
+src/pages/patient/ProfessionalProfile.tsx    — Profile + booking page
+src/components/chat/SecureChat.tsx            — Realtime chat component
+src/lib/ics.ts                               — .ics calendar file generator
+supabase/functions/paystack-webhook/index.ts — Payment webhook
+supabase/functions/process-payout/index.ts   — Payout processor
+```
 
-## 🚀 Implementation Order
-1. **Design system** — Brand colors, typography, reusable layout components, MyMedic logo
-2. **Auth flow** — Register (with role), login, OTP verification, password reset, role-based routing
-3. **Database schema** — All tables, RLS policies, `has_role()` function, triggers
-4. **Patient flow** — Discovery, professional profiles, booking, payment UI, dashboard, chat
-5. **Professional flow** — Onboarding wizard, verification state, schedule manager, consultation hub, wallet
-6. **Admin flow** — Verification queue, user moderation, finance ledger, payout processing
-7. **Paystack integration** — Checkout UI + webhook edge function
-8. **Real-time messaging** — Secure chat with Supabase Realtime
-9. **Polish** — Mobile responsiveness, loading states, error handling, notifications
+### Files Modified
+```text
+src/App.tsx                                  — Add /patient/professional/:id route
+src/pages/patient/PatientMessages.tsx        — Full chat thread UI
+src/pages/professional/ProfessionalMessages.tsx — Full chat thread UI
+src/pages/patient/PatientAppointments.tsx    — Add pro name, .ics download
+src/pages/professional/ProfessionalAppointments.tsx — Add notes, meet link, patient name
+src/pages/admin/AdminFinance.tsx             — Show professional names
+src/pages/admin/AdminPayouts.tsx             — Show professional names
+```
+
+### Implementation Order
+1. Phase A first (triggers) — without this, no new user can register successfully
+2. Phase B (profile + booking) — core patient flow completion
+3. Phase C (messaging) — enables consultation delivery
+4. Phase D (Paystack) — requires secret key from user, will prompt
+5. Phase E (.ics) — quick utility addition
+6. Phase F (polish) — woven throughout
+
+This is a large implementation spanning multiple files. I will execute it in batches, starting with the critical trigger fix and the professional profile/booking page.
 
