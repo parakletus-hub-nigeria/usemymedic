@@ -22,6 +22,7 @@ import DiscoverProfessionals from "./pages/patient/DiscoverProfessionals";
 import PatientAppointments from "./pages/patient/PatientAppointments";
 import PatientMessages from "./pages/patient/PatientMessages";
 import PatientSettings from "./pages/patient/PatientSettings";
+import ProfessionalProfile from "./pages/patient/ProfessionalProfile";
 
 // Professional pages
 import ProfessionalDashboard from "./pages/professional/ProfessionalDashboard";
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/patient/appointments" element={<ProtectedRoute allowedRoles={["patient"]}><PatientAppointments /></ProtectedRoute>} />
             <Route path="/patient/messages" element={<ProtectedRoute allowedRoles={["patient"]}><PatientMessages /></ProtectedRoute>} />
             <Route path="/patient/settings" element={<ProtectedRoute allowedRoles={["patient"]}><PatientSettings /></ProtectedRoute>} />
+            <Route path="/patient/professional/:id" element={<ProtectedRoute allowedRoles={["patient"]}><ProfessionalProfile /></ProtectedRoute>} />
 
             {/* Professional */}
             <Route path="/professional/dashboard" element={<ProtectedRoute allowedRoles={["professional"]}><ProfessionalDashboard /></ProtectedRoute>} />

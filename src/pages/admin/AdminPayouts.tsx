@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Wallet } from "lucide-react";
 import { format } from "date-fns";
@@ -16,21 +17,27 @@ const AdminPayouts = () => {
 
   const fetchPayouts = async () => {
     const { data } = await supabase.from("payout_requests").select("*").eq("status", "pending").order("requested_at");
-    setPayouts(data ?? []);
+
+    const proIds = [...new Set((data ?? []).map(p => p.professional_id))];
+    let profileMap: Record<string, string> = {};
+    if (proIds.length > 0) {
+      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", proIds);
+      profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p.full_name]));
+    }
+
+    setPayouts((data ?? []).map(p => ({ ...p, professional_name: profileMap[p.professional_id] || "Unknown" })));
     setLoading(false);
   };
 
   useEffect(() => { fetchPayouts(); }, []);
 
   const markPaid = async (payout: any) => {
-    // Update payout
     await supabase.from("payout_requests").update({
       status: "paid",
       paid_at: new Date().toISOString(),
       processed_by: user?.id,
     }).eq("id", payout.id);
 
-    // Deduct from wallet
     const { data: wallet } = await supabase.from("wallets").select("*").eq("professional_id", payout.professional_id).single();
     if (wallet) {
       await supabase.from("wallets").update({ balance: Number(wallet.balance) - Number(payout.amount) }).eq("id", wallet.id);
@@ -48,33 +55,34 @@ const AdminPayouts = () => {
           <p className="text-muted-foreground">Process pending professional withdrawal requests</p>
         </div>
 
-        {loading ? <p className="text-muted-foreground">Loading...</p> :
-          payouts.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center py-12">
-                <Wallet className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                <p className="text-muted-foreground">No pending payout requests.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {payouts.map((p) => (
-                <Card key={p.id}>
-                  <CardContent className="flex items-center justify-between py-4">
-                    <div>
-                      <p className="font-medium">₦{Number(p.amount).toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Requested {format(new Date(p.requested_at), "PPP")} · Professional: {p.professional_id.slice(0, 8)}...
-                      </p>
-                    </div>
-                    <Button className="bg-green-600 text-white hover:bg-green-700" onClick={() => markPaid(p)}>
-                      <Check className="h-4 w-4 mr-2" /> Mark as Paid
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+        {loading ? (
+          <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        ) : payouts.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center py-12">
+              <Wallet className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <p className="text-muted-foreground">No pending payout requests.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {payouts.map((p) => (
+              <Card key={p.id}>
+                <CardContent className="flex items-center justify-between py-4">
+                  <div>
+                    <p className="font-medium text-foreground">{p.professional_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      ₦{Number(p.amount).toLocaleString()} · Requested {format(new Date(p.requested_at), "PPP")}
+                    </p>
+                  </div>
+                  <Button className="bg-green-600 text-white hover:bg-green-700" onClick={() => markPaid(p)}>
+                    <Check className="h-4 w-4 mr-2" /> Mark as Paid
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
