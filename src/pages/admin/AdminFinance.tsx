@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DollarSign, Wallet } from "lucide-react";
 
 const AdminFinance = () => {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalPlatformFees, setTotalPlatformFees] = useState(0);
   const [wallets, setWallets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       const { data: txns } = await supabase.from("transactions").select("*").eq("status", "success");
       const revenue = (txns ?? []).reduce((s, t) => s + Number(t.amount), 0);
       const fees = (txns ?? []).reduce((s, t) => s + Number(t.platform_fee), 0);
@@ -18,10 +20,28 @@ const AdminFinance = () => {
       setTotalPlatformFees(fees);
 
       const { data: w } = await supabase.from("wallets").select("*");
-      setWallets(w ?? []);
+      const proIds = [...new Set((w ?? []).map(w => w.professional_id))];
+      let profileMap: Record<string, string> = {};
+      if (proIds.length > 0) {
+        const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", proIds);
+        profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p.full_name]));
+      }
+      setWallets((w ?? []).map(wallet => ({ ...wallet, professional_name: profileMap[wallet.professional_id] || "Unknown" })));
+      setLoading(false);
     };
-    fetch();
+    fetchData();
   }, []);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid gap-4 sm:grid-cols-3">{[1,2,3].map(i => <Skeleton key={i} className="h-28" />)}</div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -62,7 +82,7 @@ const AdminFinance = () => {
               <div className="space-y-2">
                 {wallets.map((w) => (
                   <div key={w.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <p className="text-sm text-muted-foreground">Professional ID: {w.professional_id.slice(0, 8)}...</p>
+                    <p className="text-sm font-medium text-foreground">{w.professional_name}</p>
                     <p className="font-semibold">₦{Number(w.balance).toLocaleString()}</p>
                   </div>
                 ))}
