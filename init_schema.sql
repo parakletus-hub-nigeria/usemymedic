@@ -141,6 +141,14 @@ CREATE TABLE IF NOT EXISTS public.payout_requests (
   rejection_reason TEXT
 );
 
+-- Unified View for Frontend (Profile + Role)
+CREATE OR REPLACE VIEW public.user_profiles AS
+SELECT 
+    p.*,
+    ur.role
+FROM public.profiles p
+LEFT JOIN public.user_roles ur ON p.user_id = ur.user_id;
+
 -- 3. Security Definer Functions
 
 -- Crucial: Get user role without querying profiles directly (prevents RLS recursion)
@@ -152,6 +160,33 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT role FROM public.user_roles WHERE user_id = _user_id LIMIT 1;
+$$;
+
+-- Standard has_role function as expected by Lovable/Types
+CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role public.app_role)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = _user_id AND role = _role
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_appointment_confirmed(_appointment_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.appointments 
+    WHERE id = _appointment_id AND status = 'confirmed'
+  );
 $$;
 
 CREATE OR REPLACE FUNCTION public.is_appointment_participant(_appointment_id UUID, _user_id UUID)

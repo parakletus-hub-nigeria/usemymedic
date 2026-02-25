@@ -60,6 +60,9 @@ BEGIN
     );
   END IF;
 
+  -- 3. Mark profiles as complete
+  UPDATE public.profiles SET is_profile_complete = true WHERE user_id IN (admin_id, pro_id);
+
 END $$;
 
 -- 3. Verification Query
