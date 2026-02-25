@@ -1,11 +1,16 @@
 -- MyMedic Seed Script: Admin & Test Professional
 -- Purpose: Create initial users and verify triggers for profiles, roles, and wallets.
--- Run this in the Supabase SQL Editor.
+-- Run this in the Supabase SQL Editor AFTER running init_schema.sql.
+
+-- Ensure pgcrypto is enabled for password hashing
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DO $$
 DECLARE
-  admin_id UUID := '00000000-0000-0000-0000-000000000001'; -- Fixed ID for reliability
+  admin_id UUID := '00000000-0000-0000-0000-000000000001';
   pro_id UUID := '00000000-0000-0000-0000-000000000002';
+  -- Use default supabase instance_id
+  inst_id UUID := '00000000-0000-0000-0000-000000000000';
 BEGIN
   -- 1. Create Super Admin
   IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'mymedicng@gmail.com') THEN
@@ -15,12 +20,12 @@ BEGIN
       created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, is_super_admin
     )
     VALUES (
-      '00000000-0000-0000-0000-000000000000',
+      inst_id,
       admin_id,
       'authenticated',
       'authenticated',
       'mymedicng@gmail.com',
-      extensions.crypt('60647065@Medic', extensions.gen_salt('bf')),
+      crypt('60647065@Medic', gen_salt('bf', 10)),
       now(),
       '{"provider": "email", "providers": ["email"]}',
       '{"full_name": "Super Admin", "role": "admin"}',
@@ -39,15 +44,15 @@ BEGIN
       created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, is_super_admin
     )
     VALUES (
-      '00000000-0000-0000-0000-000000000000',
+      inst_id,
       pro_id,
       'authenticated',
       'authenticated',
       'evander.ikechukwu@gmail.com',
-      extensions.crypt('TestPassword123!', extensions.gen_salt('bf')),
+      crypt('TestPassword123!', gen_salt('bf', 10)),
       now(),
       '{"provider": "email", "providers": ["email"]}',
-      '{"full_name": "Dr. Test Professional", "role": "professional"}',
+      '{"full_name": "Dr. Evander Ikechukwu", "role": "professional"}',
       now(),
       now(),
       '', '', '',
@@ -58,7 +63,6 @@ BEGIN
 END $$;
 
 -- 3. Verification Query
--- This confirms that the triggers we set up in init_schema.sql actually fired.
 SELECT 
     u.email,
     p.full_name AS profile_name,
