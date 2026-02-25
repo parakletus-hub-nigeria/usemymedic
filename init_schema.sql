@@ -204,7 +204,12 @@ DROP POLICY IF EXISTS "Users can read own role" ON public.user_roles;
 CREATE POLICY "Users can read own role" ON public.user_roles FOR SELECT USING (user_id = auth.uid());
 
 DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
-CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
+CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL 
+  TO authenticated
+  USING (
+    (SELECT (auth.jwt() -> 'user_metadata' ->> 'role')) = 'admin'
+    OR (SELECT (auth.jwt() -> 'app_metadata' ->> 'role')) = 'admin'
+  );
 
 -- Profiles Policies (RECURSION-FREE)
 DROP POLICY IF EXISTS "Public read for verified professionals" ON public.profiles;
