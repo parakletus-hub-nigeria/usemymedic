@@ -46,11 +46,23 @@ const ProfessionalAppointments = () => {
   useEffect(() => { fetchAppointments(); }, [user]);
 
   const updateStatus = async (id: string, status: string) => {
-    const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
+    const updateData: any = { status };
+    
+    // Fix 1: When accepting, set to awaiting_payment with 15-min expiry
+    if (status === "awaiting_payment") {
+      updateData.payment_expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    }
+    
+    // Fix 5: When completing, set completed_at
+    if (status === "completed") {
+      updateData.completed_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase.from("appointments").update(updateData).eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `Appointment ${status}` });
+      toast({ title: `Appointment ${status === "awaiting_payment" ? "accepted — awaiting patient payment" : status}` });
       fetchAppointments();
     }
   };
@@ -83,7 +95,7 @@ const ProfessionalAppointments = () => {
           </div>
           {showActions ? (
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50" onClick={() => updateStatus(apt.id, "confirmed")}>
+              <Button size="sm" variant="outline" className="text-green-600 border-green-300 hover:bg-green-50" onClick={() => updateStatus(apt.id, "awaiting_payment")}>
                 <Check className="h-4 w-4 mr-1" /> Accept
               </Button>
               <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => updateStatus(apt.id, "declined")}>
@@ -92,7 +104,7 @@ const ProfessionalAppointments = () => {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              {apt.status === "confirmed" && (
+              {(apt.status === "confirmed" || apt.status === "awaiting_payment") && (
                 <Button size="sm" variant="ghost" onClick={() => downloadIcs({
                   title: `Consultation with ${apt.patient_name}`,
                   startDate: new Date(apt.scheduled_at),
@@ -102,10 +114,26 @@ const ProfessionalAppointments = () => {
                   <Download className="h-4 w-4 mr-1" /> .ics
                 </Button>
               )}
+              {apt.status === "cancelled" && (
+                <Button size="sm" variant="ghost" onClick={() => downloadIcs({
+                  title: `Consultation with ${apt.patient_name}`,
+                  startDate: new Date(apt.scheduled_at),
+                  durationMins: apt.duration_mins,
+                  cancel: true,
+                  uid: apt.id,
+                })}>
+                  <Download className="h-4 w-4 mr-1" /> Cancel .ics
+                </Button>
+              )}
               <Badge>{apt.status}</Badge>
             </div>
           )}
         </div>
+
+        {/* Awaiting payment indicator */}
+        {apt.status === "awaiting_payment" && apt.payment_expires_at && (
+          <p className="text-sm text-yellow-600">⏳ Waiting for patient payment (expires {format(new Date(apt.payment_expires_at), "p")})</p>
+        )}
 
         {/* Meet link for confirmed */}
         {apt.status === "confirmed" && (
@@ -122,6 +150,13 @@ const ProfessionalAppointments = () => {
               </Button>
             )}
           </div>
+        )}
+
+        {/* Mark complete for confirmed appointments */}
+        {apt.status === "confirmed" && (
+          <Button size="sm" variant="outline" className="text-blue-600 border-blue-300 hover:bg-blue-50" onClick={() => updateStatus(apt.id, "completed")}>
+            <Check className="h-4 w-4 mr-1" /> Mark Completed
+          </Button>
         )}
 
         {/* Consultation notes */}
@@ -168,14 +203,15 @@ const ProfessionalAppointments = () => {
         <Tabs defaultValue="pending">
           <TabsList>
             <TabsTrigger value="pending">Pending ({byStatus("pending").length})</TabsTrigger>
+            <TabsTrigger value="awaiting_payment">Awaiting Payment ({byStatus("awaiting_payment").length})</TabsTrigger>
             <TabsTrigger value="confirmed">Confirmed ({byStatus("confirmed").length})</TabsTrigger>
-            <TabsTrigger value="declined">Declined ({byStatus("declined").length})</TabsTrigger>
             <TabsTrigger value="completed">Completed ({byStatus("completed").length})</TabsTrigger>
+            <TabsTrigger value="declined">Declined ({byStatus("declined").length})</TabsTrigger>
           </TabsList>
-          {["pending", "confirmed", "declined", "completed"].map(status => (
+          {["pending", "awaiting_payment", "confirmed", "completed", "declined"].map(status => (
             <TabsContent key={status} value={status} className="mt-4">
               {byStatus(status).length === 0
-                ? <p className="text-muted-foreground text-sm">No {status} appointments.</p>
+                ? <p className="text-muted-foreground text-sm">No {status.replace("_", " ")} appointments.</p>
                 : byStatus(status).map(apt => <AppointmentCard key={apt.id} apt={apt} showActions={status === "pending"} />)
               }
             </TabsContent>

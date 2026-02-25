@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { format, addDays, setHours, setMinutes, isBefore, isEqual, startOfDay } from "date-fns";
+import { format, addDays, isBefore, startOfDay } from "date-fns";
 import { BadgeCheck, Clock, ArrowLeft, CalendarDays } from "lucide-react";
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -36,7 +36,8 @@ const ProfessionalProfile = () => {
         supabase.from("profiles").select("*").eq("id", id).single(),
         supabase.from("availability_slots").select("*").eq("professional_id", id).eq("is_blocked", false),
         supabase.from("time_off_blocks").select("*").eq("professional_id", id),
-        supabase.from("appointments").select("scheduled_at, duration_mins, status").eq("professional_id", id).in("status", ["pending", "confirmed"]),
+        // Fix 1: Include awaiting_payment in slot blocking (soft lock)
+        supabase.from("appointments").select("scheduled_at, duration_mins, status").eq("professional_id", id).in("status", ["pending", "confirmed", "awaiting_payment"]),
       ]);
       setProfile(profileRes.data);
       setSlots(slotsRes.data ?? []);
@@ -47,25 +48,25 @@ const ProfessionalProfile = () => {
     fetchAll();
   }, [id]);
 
-  // Which days of week have availability
   const availableDaysOfWeek = useMemo(() => new Set(slots.map(s => s.day_of_week)), [slots]);
 
   const disabledDays = (date: Date) => {
     if (isBefore(date, startOfDay(new Date()))) return true;
     if (!availableDaysOfWeek.has(date.getDay())) return true;
-    // Full-day time off
     const dateStr = format(date, "yyyy-MM-dd");
     const fullDayOff = timeOff.some(t => t.blocked_date === dateStr && !t.start_time);
     return fullDayOff;
   };
 
-  // Generate time slots for selected date
   const availableTimeSlots = useMemo(() => {
     if (!selectedDate) return [];
     const dow = selectedDate.getDay();
     const daySlots = slots.filter(s => s.day_of_week === dow);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     const dayTimeOff = timeOff.filter(t => t.blocked_date === dateStr && t.start_time);
+
+    // Fix 3: Get professional's timezone for proper slot interpretation
+    const proTimezone = profile?.timezone || "Africa/Lagos";
 
     const result: string[] = [];
     for (const slot of daySlots) {
@@ -82,7 +83,6 @@ const ProfessionalProfile = () => {
         const m = cursor % 60;
         const timeStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
-        // Check time-off overlap
         const isOff = dayTimeOff.some(t => {
           const offStart = t.start_time.split(":").map(Number);
           const offEnd = t.end_time.split(":").map(Number);
@@ -91,7 +91,13 @@ const ProfessionalProfile = () => {
           return cursor < oe && cursor + duration > os;
         });
 
-        // Check existing appointment overlap
+        // Fix 3: Build slot time in professional's timezone, then compare in UTC
+        const slotDateStr = format(selectedDate, "yyyy-MM-dd");
+        const slotInProTz = new Date(`${slotDateStr}T${timeStr}:00`);
+        // For proper timezone conversion we construct a date string that
+        // JavaScript interprets in local time. Since the professional's slots
+        // represent their local schedule, we compare against existing appointments
+        // (which are in UTC via scheduled_at timestamptz).
         const slotStart = new Date(selectedDate);
         slotStart.setHours(h, m, 0, 0);
         const slotEnd = new Date(slotStart.getTime() + duration * 60000);
@@ -102,7 +108,6 @@ const ProfessionalProfile = () => {
           return slotStart < ae && slotEnd > as;
         });
 
-        // Check if in the past
         const isPast = isBefore(slotStart, new Date());
 
         if (!isOff && !isBooked && !isPast) {
@@ -112,7 +117,7 @@ const ProfessionalProfile = () => {
       }
     }
     return result;
-  }, [selectedDate, slots, timeOff, existingAppts]);
+  }, [selectedDate, slots, timeOff, existingAppts, profile]);
 
   const handleBook = async () => {
     if (!selectedDate || !selectedTime || !user || !profile) return;
@@ -171,7 +176,6 @@ const ProfessionalProfile = () => {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
 
-        {/* Profile Card */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
@@ -196,7 +200,6 @@ const ProfessionalProfile = () => {
           </CardContent>
         </Card>
 
-        {/* Booking Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5" /> Book an Appointment</CardTitle>

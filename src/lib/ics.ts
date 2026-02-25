@@ -6,6 +6,8 @@ interface IcsEvent {
   startDate: Date;
   durationMins: number;
   meetLink?: string;
+  cancel?: boolean;
+  uid?: string;
 }
 
 function pad(d: Date): string {
@@ -15,18 +17,22 @@ function pad(d: Date): string {
 export function generateIcs(event: IcsEvent): string {
   const start = event.startDate;
   const end = new Date(start.getTime() + event.durationMins * 60000);
+  const uid = event.uid || crypto.randomUUID();
 
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//MyMedic//EN",
+    ...(event.cancel ? ["METHOD:CANCEL"] : ["METHOD:PUBLISH"]),
     "BEGIN:VEVENT",
     `DTSTART:${pad(start)}`,
     `DTEND:${pad(end)}`,
-    `SUMMARY:${event.title}`,
+    `SUMMARY:${event.cancel ? "[CANCELLED] " : ""}${event.title}`,
     `DESCRIPTION:${event.description || "MyMedic Consultation"}`,
+    ...(event.cancel ? ["STATUS:CANCELLED"] : []),
     ...(event.meetLink ? [`URL:${event.meetLink}`, `LOCATION:${event.meetLink}`] : []),
-    `UID:${crypto.randomUUID()}@mymedic`,
+    `UID:${uid}@mymedic`,
+    "SEQUENCE:1",
     "END:VEVENT",
     "END:VCALENDAR",
   ];
@@ -39,7 +45,7 @@ export function downloadIcs(event: IcsEvent) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `mymedic-appointment.ics`;
+  a.download = event.cancel ? `mymedic-cancellation.ics` : `mymedic-appointment.ics`;
   a.click();
   URL.revokeObjectURL(url);
 }
