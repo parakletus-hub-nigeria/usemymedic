@@ -19,19 +19,18 @@ const Index = () => {
   return (
     <PublicLayout>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-primary py-20 md:py-32">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(193_76%_58%/0.15),transparent_70%)]" />
+      <section className="relative overflow-hidden bg-background py-20 md:py-32">
         <div className="container relative z-10">
           <div className="mx-auto max-w-3xl text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-sm font-medium text-accent">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary">
               <Shield className="h-4 w-4" />
               HIPAA-Compliant Healthcare Platform
             </div>
-            <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-primary-foreground md:text-6xl">
+            <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-primary md:text-6xl">
               Your Health,{" "}
               <span className="text-accent">One Click Away</span>
             </h1>
-            <p className="mb-8 text-lg text-primary-foreground/70 md:text-xl">
+            <p className="mb-8 text-lg text-muted-foreground md:text-xl">
               Book verified doctors, consult securely, and manage your healthcare
               — all from one trusted platform.
             </p>
@@ -47,8 +46,7 @@ const Index = () => {
               </Button>
               <Button
                 size="lg"
-                variant="outline"
-                className="border-primary-foreground/20 text-primary-foreground hover:bg-secondary hover:text-primary-foreground font-medium"
+                className="bg-white text-[#0A1F44] border border-border hover:bg-white font-medium"
                 asChild
               >
                 <Link to="/register">Join as a Professional</Link>
