@@ -1,34 +1,27 @@
-# MyMedic — Implementation Plan (COMPLETED)
 
-## All Phases Complete ✅
 
-### Phase A: Database Triggers ✅
-- All 6 triggers attached (user creation, role assignment, wallet provisioning, updated_at)
-- Realtime enabled for messages table
+## UI/Styling Changes for the Hero Section
 
-### Phase B: Professional Profile + Booking ✅
-- `ProfessionalProfile.tsx` with calendar, time slot selection, booking
-- Route `/patient/professional/:id` added
+Three targeted changes to `src/pages/Index.tsx`:
 
-### Phase C: Real-Time Messaging ✅
-- `SecureChat.tsx` with Realtime subscriptions, meet link detection
-- Both `PatientMessages` and `ProfessionalMessages` show chat threads
+### 1. Hero Background
+Change the hero `<section>` from `bg-primary` (dark teal) to `bg-background` (off-white) to blend with the rest of the page. Remove the radial gradient overlay since it was designed for the dark background.
 
-### Phase D: Paystack Integration ✅
-- `paystack-webhook` edge function (validates signature, credits wallet)
-- `process-payout` edge function (admin-only, deducts wallet)
-- Both deployed
+### 2. Hero Text Color
+Change "Your Health," from `text-primary-foreground` (white) to `text-primary` (dark teal — the color that was previously the hero background). Update the subtitle and badge colors accordingly so they remain readable on the light background.
 
-### Phase E: .ics Calendar Generation ✅
-- `src/lib/ics.ts` utility
-- Download buttons on confirmed appointments (both patient + professional)
+### 3. "Join as a Professional" Button
+Replace the outline variant styling with a solid white background (`bg-white`) and deep navy text (`text-[#0A1F44]`). Remove hover effects that change background color — keep it flat and clean.
 
-### Phase F: UI Polish ✅
-- Professional names shown in patient appointments, admin finance, admin payouts
-- Consultation notes UI on professional appointments
-- Meet link management on confirmed appointments
-- Loading skeletons throughout
-- Empty states with icons
+### Technical Details
 
-## Remaining (User Action Required)
-- **PAYSTACK_SECRET_KEY** secret needs to be added for payment webhook to work
+**File:** `src/pages/Index.tsx`
+
+Changes at lines 22-55:
+- Line 22: `bg-primary` → `bg-background`
+- Line 23: Remove the radial gradient div
+- Line 26: Update badge border/bg/text for light background
+- Line 30: `text-primary-foreground` → `text-primary`
+- Line 34: `text-primary-foreground/70` → `text-muted-foreground`
+- Lines 48-54: Replace outline button classes with `bg-white text-[#0A1F44] border-border hover:bg-white`
+
