@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createHmac } from "https://deno.land/std@0.224.0/crypto/mod.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,6 +74,6 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: corsHeaders });
   }
 });
