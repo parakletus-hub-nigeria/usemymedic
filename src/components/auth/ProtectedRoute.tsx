@@ -8,6 +8,12 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { user, role, loading } = useAuth();
+  const bypassAdminAuth = import.meta.env.VITE_BYPASS_ADMIN_AUTH === "true";
+
+  // Development bypass for admin routes
+  if (bypassAdminAuth && allowedRoles?.includes("admin")) {
+    return <>{children}</>;
+  }
 
   // Still resolving auth state — keep spinning
   if (loading) {
