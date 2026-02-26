@@ -9,6 +9,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { user, role, loading } = useAuth();
 
+  // Still resolving auth state — keep spinning
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -22,6 +23,18 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // If user is authenticated but role hasn't resolved yet (async), keep waiting
+  if (allowedRoles && role === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Verifying access...</p>
+        </div>
+      </div>
+    );
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role)) {
