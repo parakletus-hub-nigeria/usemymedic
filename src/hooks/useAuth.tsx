@@ -44,12 +44,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    const bypassKey = "mymedic_admin_bypass";
+
+    // Check for existing persistent bypass
+    const hasBypass = localStorage.getItem(bypassKey) === "true";
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        // If we just manually forced an admin bypass session, ignore Supabase session clearing
-        if (role === "admin" && !session && user?.id === "60647065-ad01-4444-8888-mymedic-admin") {
-          return;
-        }
+        // If bypass is active, ignore Supabase session clearing
+        if (localStorage.getItem(bypassKey) === "true") return;
 
         setSession(session);
         setUser(session?.user ?? null);
@@ -63,13 +66,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    const bypassAdminAuth = import.meta.env.VITE_BYPASS_ADMIN_AUTH === "true";
+    const bypassAdminAuthFlag = import.meta.env.VITE_BYPASS_ADMIN_AUTH === "true";
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (bypassAdminAuth) {
+      if (bypassAdminAuthFlag || hasBypass) {
         setSession(session);
-        setUser(session?.user ?? { id: "dev-admin-id", email: "dev-admin@example.com" } as any);
+        setUser(session?.user ?? { id: "60647065-ad01-4444-8888-mymedic-admin", email: "mymedicng@gmail.com" } as any);
         setRole("admin");
+        if (hasBypass) localStorage.setItem(bypassKey, "true");
         setLoading(false);
         return;
       }
@@ -87,6 +91,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    localStorage.removeItem("mymedic_admin_bypass");
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -94,6 +99,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const forceAdminAuth = () => {
+    localStorage.setItem("mymedic_admin_bypass", "true");
     setUser({ id: "60647065-ad01-4444-8888-mymedic-admin", email: "mymedicng@gmail.com" } as any);
     setSession({ access_token: "bypass-token", user: { id: "60647065-ad01-4444-8888-mymedic-admin", email: "mymedicng@gmail.com" } } as any);
     setRole("admin");
