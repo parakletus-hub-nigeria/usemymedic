@@ -374,16 +374,26 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+    set_role public.app_role;
 BEGIN
-  -- Insert profile
-  INSERT INTO public.profiles (user_id, full_name)
-  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', ''));
-  
-  -- Assign default role
-  INSERT INTO public.user_roles (user_id, role)
-  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'role', 'patient')::public.app_role);
-  
-  RETURN NEW;
+    -- Extract role from metadata, default to 'patient'
+    set_role := COALESCE(
+        (NEW.raw_user_meta_data->>'role')::public.app_role, 
+        'patient'
+    );
+
+    -- Insert profile
+    INSERT INTO public.profiles (user_id, full_name)
+    VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', ''))
+    ON CONFLICT (user_id) DO NOTHING;
+    
+    -- Assign role
+    INSERT INTO public.user_roles (user_id, role)
+    VALUES (NEW.id, set_role)
+    ON CONFLICT (user_id) DO UPDATE SET role = EXCLUDED.role;
+    
+    RETURN NEW;
 END;
 $$;
 
