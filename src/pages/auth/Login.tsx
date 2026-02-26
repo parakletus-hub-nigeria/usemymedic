@@ -15,9 +15,19 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const { forceAdminAuth } = useAuth();
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Hardcoded Admin Bypass
+    if (email === "mymedicng@gmail.com" && password === "60647065@Medic") {
+      forceAdminAuth();
+      setLoading(false);
+      navigate("/admin/dashboard");
+      return;
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
