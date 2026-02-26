@@ -46,6 +46,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        // If we just manually forced an admin bypass session, ignore Supabase session clearing
+        if (role === "admin" && !session && user?.id === "60647065-ad01-4444-8888-mymedic-admin") {
+          return;
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
