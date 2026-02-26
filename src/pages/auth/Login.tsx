@@ -31,16 +31,18 @@ const Login = () => {
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", data.user.id)
-      .single();
+      .eq("user_id", data.user.id);
 
-    const role = roleData?.role || "patient";
+    // Prioritize: admin > professional > patient
+    const roles = (roleData ?? []).map((r) => r.role);
+    const prioritized = roles.includes("admin") ? "admin" : roles.includes("professional") ? "professional" : "patient";
+
     const dashboardMap: Record<string, string> = {
       patient: "/patient/dashboard",
       professional: "/professional/dashboard",
       admin: "/admin/dashboard",
     };
-    navigate(dashboardMap[role] || "/");
+    navigate(dashboardMap[prioritized] || "/");
   };
 
   return (
