@@ -8,14 +8,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { user, role, loading } = useAuth();
-  const bypassAdminAuth = import.meta.env.VITE_BYPASS_ADMIN_AUTH === "true";
 
-  // Development bypass for admin routes
-  if (bypassAdminAuth && allowedRoles?.includes("admin")) {
-    return <>{children}</>;
-  }
-
-  // Still resolving auth state — keep spinning
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -31,7 +24,6 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  // If user is authenticated but role hasn't resolved yet (async), keep waiting
   if (allowedRoles && role === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -44,7 +36,6 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role)) {
-    // Redirect to the correct dashboard based on role
     const dashboardMap = {
       patient: "/patient/dashboard",
       professional: "/professional/dashboard",

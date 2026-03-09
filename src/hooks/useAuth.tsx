@@ -10,7 +10,6 @@ interface AuthContextType {
   role: UserRole | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  forceAdminAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,8 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   role: null,
   loading: true,
-  signOut: async () => { },
-  forceAdminAuth: () => { },
+  signOut: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -36,7 +34,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       .select("role")
       .eq("user_id", userId);
     if (!data || data.length === 0) return null;
-    // Prioritize: admin > professional > patient
     const roles = data.map((r) => r.role as UserRole);
     if (roles.includes("admin")) return "admin";
     if (roles.includes("professional")) return "professional";
@@ -44,16 +41,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    const bypassKey = "mymedic_admin_bypass";
-
-    // Check for existing persistent bypass
-    const hasBypass = localStorage.getItem(bypassKey) === "true";
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        // If bypass is active, ignore Supabase session clearing
-        if (localStorage.getItem(bypassKey) === "true") return;
-
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -66,18 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    const bypassAdminAuthFlag = import.meta.env.VITE_BYPASS_ADMIN_AUTH === "true";
-
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (bypassAdminAuthFlag || hasBypass) {
-        setSession(session);
-        setUser(session?.user ?? { id: "60647065-ad01-4444-8888-mymedic-admin", email: "mymedicng@gmail.com" } as any);
-        setRole("admin");
-        if (hasBypass) localStorage.setItem(bypassKey, "true");
-        setLoading(false);
-        return;
-      }
-
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -91,23 +69,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
-    localStorage.removeItem("mymedic_admin_bypass");
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setRole(null);
   };
 
-  const forceAdminAuth = () => {
-    localStorage.setItem("mymedic_admin_bypass", "true");
-    setUser({ id: "60647065-ad01-4444-8888-mymedic-admin", email: "mymedicng@gmail.com" } as any);
-    setSession({ access_token: "bypass-token", user: { id: "60647065-ad01-4444-8888-mymedic-admin", email: "mymedicng@gmail.com" } } as any);
-    setRole("admin");
-    setLoading(false);
-  };
-
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, signOut, forceAdminAuth }}>
+    <AuthContext.Provider value={{ user, session, role, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

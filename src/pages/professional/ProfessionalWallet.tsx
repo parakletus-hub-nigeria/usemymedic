@@ -24,7 +24,7 @@ const ProfessionalWallet = () => {
   // Fix 2: Only apply cooldown on PAID payouts
   const lastPaidPayout = payouts.find(p => p.status === "paid");
   const cooldownEnd = lastPaidPayout ? addDays(new Date(lastPaidPayout.requested_at), 7) : null;
-  const isCooldown = cooldownEnd && isAfter(cooldownEnd, new Date());
+  const isCooldown = !!cooldownEnd && isAfter(cooldownEnd, new Date());
 
   const requestPayout = async () => {
     if (!user || !wallet) return;

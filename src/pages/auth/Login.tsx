@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import PublicLayout from "@/components/layout/PublicLayout";
-import { useAuth } from "@/hooks/useAuth";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -16,19 +15,9 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const { forceAdminAuth } = useAuth();
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    // Hardcoded Admin Bypass
-    if (email === "mymedicng@gmail.com" && password === "60647065@Medic") {
-      forceAdminAuth();
-      setLoading(false);
-      navigate("/admin/dashboard");
-      return;
-    }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -44,7 +33,6 @@ const Login = () => {
       .select("role")
       .eq("user_id", data.user.id);
 
-    // Prioritize: admin > professional > patient
     const roles = (roleData ?? []).map((r) => r.role);
     const prioritized = roles.includes("admin") ? "admin" : roles.includes("professional") ? "professional" : "patient";
 
