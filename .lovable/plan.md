@@ -1,37 +1,31 @@
 
 
-## Fix: Admin Login + Edge Function Build Errors
+# Fix: Blank Page on Published Site
 
-### 1. Insert missing admin data
-Use the data insert tool to add the missing `profiles` and `user_roles` rows for user `47916a3c-d97f-4efa-b531-3f1bfcb9a1c2`:
+## Root Cause
 
-```sql
-INSERT INTO public.profiles (user_id, full_name, is_profile_complete, is_verified)
-VALUES ('47916a3c-d97f-4efa-b531-3f1bfcb9a1c2', 'Super Admin', true, true)
-ON CONFLICT (user_id) DO NOTHING;
+`src/integrations/supabase/client.ts` reads `import.meta.env.VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` with no fallback values. The preview injects these from `.env`, but the published build may not have them available, causing `createClient(undefined, undefined)` to throw — crashing the app before any UI renders.
 
-INSERT INTO public.user_roles (user_id, role)
-VALUES ('47916a3c-d97f-4efa-b531-3f1bfcb9a1c2', 'admin')
-ON CONFLICT DO NOTHING;
+**Important note:** This file is auto-generated and should not be manually edited. The previous edit that removed the hardcoded fallbacks (which pointed to the correct instance) may have caused this regression. The correct fix is to **re-publish the project** so the build picks up the current `.env` values.
+
+## Fix
+
+Since `src/integrations/supabase/client.ts` is auto-generated and should not be edited, the solution is to **re-publish the project**. The current `.env` file has the correct values — the published build just needs to be rebuilt with them.
+
+If re-publishing doesn't resolve the issue (because the auto-generated `client.ts` still lacks fallbacks), then we add safe fallback values to `client.ts` pointing to the correct Lovable Cloud instance (`onwoeygmqkogxynvftcy`):
+
+```typescript
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "https://onwoeygmqkogxynvftcy.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "eyJhbGci...";
 ```
 
-### 2. Fix edge function build errors (4 errors)
+## Recommendation
 
-**expire-unpaid-appointments/index.ts:**
-- Line 45: `err` is `unknown` → cast to `(err as Error).message`
+**Try re-publishing first** using the Share button in the top-right corner. If the blank page persists after re-publish, approve this plan and I will add the fallbacks.
 
-**paystack-webhook/index.ts:**
-- Line 2: `createHmac` doesn't exist in `deno.land/std@0.224.0/crypto/mod.ts` → use Web Crypto API (`crypto.subtle`) with HMAC-SHA512 instead
-- Line 77: `err` is `unknown` → cast to `(err as Error).message`
+## Files Modified
 
-**process-payout/index.ts:**
-- Line 89: `err` is `unknown` → cast to `(err as Error).message`
-
-### 3. No schema or frontend changes needed
-The `useAuth` hook and `Login.tsx` already correctly query `user_roles.role` — not `profiles.role`. The `has_role()` function is SECURITY DEFINER, preventing RLS recursion. No code changes needed for auth logic.
-
-### Files Modified
-- `supabase/functions/expire-unpaid-appointments/index.ts` — fix `unknown` error type
-- `supabase/functions/paystack-webhook/index.ts` — replace `createHmac` with Web Crypto API, fix `unknown` error type
-- `supabase/functions/process-payout/index.ts` — fix `unknown` error type
+```
+src/integrations/supabase/client.ts — Add fallback values for env vars
+```
 
