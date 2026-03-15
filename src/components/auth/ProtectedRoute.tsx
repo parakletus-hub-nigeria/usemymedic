@@ -25,14 +25,8 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   }
 
   if (allowedRoles && role === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Verifying access...</p>
-        </div>
-      </div>
-    );
+    // Role fetch completed but no role found — redirect to login
+    return <Navigate to="/login" replace />;
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role)) {

@@ -32,14 +32,19 @@ const ProfessionalProfile = () => {
   useEffect(() => {
     if (!id) return;
     const fetchAll = async () => {
-      const [profileRes, slotsRes, timeOffRes, apptsRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", id).single(),
+      // First fetch profile to get user_id for appointment queries
+      const profileRes = await supabase.from("profiles").select("*").eq("id", id).single();
+      const prof = profileRes.data;
+      setProfile(prof);
+
+      if (!prof) { setLoading(false); return; }
+
+      // Slots/time-off use profiles.id; appointments use profiles.user_id
+      const [slotsRes, timeOffRes, apptsRes] = await Promise.all([
         supabase.from("availability_slots").select("*").eq("professional_id", id).eq("is_blocked", false),
         supabase.from("time_off_blocks").select("*").eq("professional_id", id),
-        // Fix 1: Include awaiting_payment in slot blocking (soft lock)
-        supabase.from("appointments").select("scheduled_at, duration_mins, status").eq("professional_id", id).in("status", ["pending", "confirmed", "awaiting_payment"]),
+        supabase.from("appointments").select("scheduled_at, duration_mins, status").eq("professional_id", prof.user_id).in("status", ["pending", "confirmed", "awaiting_payment"]),
       ]);
-      setProfile(profileRes.data);
       setSlots(slotsRes.data ?? []);
       setTimeOff(timeOffRes.data ?? []);
       setExistingAppts(apptsRes.data ?? []);
