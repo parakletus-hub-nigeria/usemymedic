@@ -1,37 +1,46 @@
 
+Problem confirmed: this is not a normal React runtime crash anymore. The published URL is returning malformed/minimal HTML that contains only `<body><div id="root"></div>` plus the Lovable badge, while your repo’s `index.html` correctly contains a full `<head>` and the `<script type="module" src="/src/main.tsx">`. That means the live site is serving a broken frontend artifact, not your current app shell.
 
-## Fix: Admin Login + Edge Function Build Errors
+What I found:
+- Published URL HTML is missing the app script tag entirely, so React never boots.
+- Your current `index.html` in code is valid and includes the script tag.
+- The preview codebase itself does not show an obvious frontend crash point from routing/auth on `/`.
+- So the next fix should target the published build artifact, not app logic.
 
-### 1. Insert missing admin data
-Use the data insert tool to add the missing `profiles` and `user_roles` rows for user `47916a3c-d97f-4efa-b531-3f1bfcb9a1c2`:
+Plan
 
-```sql
-INSERT INTO public.profiles (user_id, full_name, is_profile_complete, is_verified)
-VALUES ('47916a3c-d97f-4efa-b531-3f1bfcb9a1c2', 'Super Admin', true, true)
-ON CONFLICT (user_id) DO NOTHING;
+1. Verify whether the live deploy is serving a stale/broken artifact
+- Re-check the published HTML after a code-level rebuild trigger.
+- Confirm whether the missing `<head>`/`<script>` persists.
 
-INSERT INTO public.user_roles (user_id, role)
-VALUES ('47916a3c-d97f-4efa-b531-3f1bfcb9a1c2', 'admin')
-ON CONFLICT DO NOTHING;
-```
+2. Force a real frontend rebuild from application code
+- Make a small but meaningful source change in app code, not just metadata, so the bundler definitely regenerates assets.
+- Prefer touching `src/main.tsx` or `src/App.tsx` rather than only `index.html`, since the previous publish likely reused a bad artifact.
 
-### 2. Fix edge function build errors (4 errors)
+3. Simplify and normalize the app shell
+- Clean up `index.html` to a minimal, canonical Vite structure.
+- Keep only essential meta tags and the root/module script.
+- This removes any chance that unusual head markup is confusing the publish pipeline.
 
-**expire-unpaid-appointments/index.ts:**
-- Line 45: `err` is `unknown` → cast to `(err as Error).message`
+4. Add a defensive startup guard
+- Add a lightweight visible fallback at app bootstrap so if the app ever fails before render, users see a diagnostic message instead of a blank page.
+- This won’t fix the missing script issue by itself, but it makes future production failures observable.
 
-**paystack-webhook/index.ts:**
-- Line 2: `createHmac` doesn't exist in `deno.land/std@0.224.0/crypto/mod.ts` → use Web Crypto API (`crypto.subtle`) with HMAC-SHA512 instead
-- Line 77: `err` is `unknown` → cast to `(err as Error).message`
+5. Re-publish and validate the live artifact
+- Confirm that the published HTML now includes the module script.
+- Then verify the home page loads and the login/register routes render.
 
-**process-payout/index.ts:**
-- Line 89: `err` is `unknown` → cast to `(err as Error).message`
+Files I would expect to update
+- `index.html` — reduce to a minimal, clean shell
+- `src/main.tsx` — add a tiny bootstrap change to force asset regeneration and optionally a startup fallback
+- optionally `src/App.tsx` — small no-op render-safe change if needed to invalidate the build output
 
-### 3. No schema or frontend changes needed
-The `useAuth` hook and `Login.tsx` already correctly query `user_roles.role` — not `profiles.role`. The `has_role()` function is SECURITY DEFINER, preventing RLS recursion. No code changes needed for auth logic.
+Why this approach
+- The evidence points to deployment artifact corruption/caching, not a bad route/component.
+- Since the published page lacks the JS entry entirely, fixing app internals alone won’t help.
+- A source-level rebuild trigger plus a simplified app shell is the most reliable next move.
 
-### Files Modified
-- `supabase/functions/expire-unpaid-appointments/index.ts` — fix `unknown` error type
-- `supabase/functions/paystack-webhook/index.ts` — replace `createHmac` with Web Crypto API, fix `unknown` error type
-- `supabase/functions/process-payout/index.ts` — fix `unknown` error type
-
+Expected outcome
+- Live HTML includes the missing script tag again
+- React mounts normally
+- The published URL stops showing a blank page and matches preview behavior
